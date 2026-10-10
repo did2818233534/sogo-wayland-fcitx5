@@ -8,7 +8,9 @@ scale = 4
 for name, color, radius in [('background', '#363636', 12), ('highlight', '#565656', 7)]:
     image = Image.new('RGBA', (48 * scale, 48 * scale))
     draw = ImageDraw.Draw(image)
-    draw.rounded_rectangle((0, 0, 48 * scale - 1, 48 * scale - 1), radius * scale, fill=color)
+    draw.rounded_rectangle((0, 0, 48 * scale - 1, 48 * scale - 1), radius * scale, fill=color,
+                           outline='#686868' if name == 'background' else None,
+                           width=scale if name == 'background' else 1)
     image.resize((48, 48), Image.Resampling.LANCZOS).save(out / (name + '.png'))
 for name, points in [('prev', [(8, 2), (3, 7), (8, 12)]),
                      ('next', [(3, 2), (8, 7), (3, 12)]),
