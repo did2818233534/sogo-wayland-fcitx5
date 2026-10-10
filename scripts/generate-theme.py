@@ -5,7 +5,7 @@ from PIL import Image, ImageDraw
 out = Path(__file__).resolve().parents[1] / 'data/themes/sogou-soft-dark'
 out.mkdir(parents=True, exist_ok=True)
 scale = 4
-for name, color, radius in [('background', '#363636', 12), ('highlight', '#565656', 7)]:
+for name, color, radius in [('background', '#2c2c2c', 12), ('highlight', '#565656', 7)]:
     image = Image.new('RGBA', (48 * scale, 48 * scale))
     draw = ImageDraw.Draw(image)
     draw.rounded_rectangle((0, 0, 48 * scale - 1, 48 * scale - 1), radius * scale, fill=color,
