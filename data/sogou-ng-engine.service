@@ -1,0 +1,25 @@
+[Unit]
+Description=Sogou NG engine for Fcitx5 native adapter
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+ExecStart=/opt/sogou-ng/root/usr/bin/cpis-engine-service --ini /etc/cpis/ise.ini --type dbus
+Environment=HOME=/opt/sogou-ng/userdata
+Environment=XDG_CONFIG_HOME=/opt/sogou-ng/userdata/.config
+Environment=XDG_DATA_HOME=/opt/sogou-ng/userdata/.local/share
+Environment=LD_LIBRARY_PATH=/opt/sogou-ng/root/usr/lib/x86_64-linux-gnu
+Environment=GDK_BACKEND=wayland
+Environment=NO_AT_BRIDGE=1
+Environment=XDG_RUNTIME_DIR=%t
+Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=%t/bus
+Restart=on-failure
+RestartSec=2
+TimeoutStopSec=5
+KillMode=control-group
+LimitCORE=0
+StandardOutput=null
+StandardError=journal
+
+[Install]
+WantedBy=default.target

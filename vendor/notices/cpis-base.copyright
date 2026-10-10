@@ -1,0 +1,62 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: mlks-xkb
+Upstream-Contact: <preferred name and address to reach the upstream project>
+Source: <url://example.com>
+#
+# Please double check copyright with the licensecheck(1) command.
+
+Files:     .gitignore
+           README.en.md
+           README.md
+           docs/.DS_Store
+           docs/多语言键盘XKB符号文件使用说明.docx
+           docs/软著文件/.DS_Store
+           docs/软著文件/11-朝鲜族语键盘（国标）for Linux 软件 v1/.WeDrive
+           docs/软著文件/11-朝鲜族语键盘（国标）for Linux 软件 v1/11-朝鲜族语键盘（国标）for Linux 软件 v1-使用说明书.docx
+           docs/软著文件/11-朝鲜族语键盘（国标）for Linux 软件 v1/11-朝鲜族语键盘（国标）for Linux 软件 v1-源代码.docx
+           docs/软著文件/11-朝鲜族语键盘（国标）for Linux 软件 v1/11-朝鲜族语键盘（国标）for Linux 软件 v1-软著信息表.doc
+           docs/软著文件/12、德宏傣文键盘（国标）for Linux 软件 v1/.WeDrive
+           docs/软著文件/12、德宏傣文键盘（国标）for Linux 软件 v1/12、德宏傣文键盘（国标）for Linux 软件 v1-使用说明书.docx
+           docs/软著文件/12、德宏傣文键盘（国标）for Linux 软件 v1/12、德宏傣文键盘（国标）for Linux 软件 v1-源代码.docx
+           docs/软著文件/12、德宏傣文键盘（国标）for Linux 软件 v1/12、德宏傣文键盘（国标）for Linux 软件 v1-软著信息表.doc
+           docs/软著文件/6-维吾尔族语键盘（国标）for Linux 软件 v1/.WeDrive
+           docs/软著文件/6-维吾尔族语键盘（国标）for Linux 软件 v1/6-维吾尔族语键盘（国标）for Linux 软件 v1 源代码.docx
+           docs/软著文件/6-维吾尔族语键盘（国标）for Linux 软件 v1/6-维吾尔族语键盘（国标）for Linux 软件 v1-使用说明书.docx
+           docs/软著文件/6-维吾尔族语键盘（国标）for Linux 软件 v1/6-维吾尔族语键盘（国标）for Linux 软件 v1-软著信息表.doc
+           docs/软著文件/7-哈萨克族语键盘（国标）for Linux 软件 v1/.WeDrive
+           docs/软著文件/7-哈萨克族语键盘（国标）for Linux 软件 v1/7-哈萨克族语键盘（国标）for Linux 软件 v1-使用说明书.docx
+           docs/软著文件/7-哈萨克族语键盘（国标）for Linux 软件 v1/7-哈萨克族语键盘（国标）for Linux 软件 v1-源代码.docx
+           docs/软著文件/7-哈萨克族语键盘（国标）for Linux 软件 v1/7-哈萨克族语键盘（国标）for Linux 软件 v1-软著信息表.doc
+           docs/软著文件/8-柯尔克孜族语键盘（国标）for Linux软件 v1/.WeDrive
+           docs/软著文件/8-柯尔克孜族语键盘（国标）for Linux软件 v1/8-柯尔克孜族语键盘（国标）for Linux软件 v1-使用说明书.docx
+           docs/软著文件/8-柯尔克孜族语键盘（国标）for Linux软件 v1/8-柯尔克孜族语键盘（国标）for Linux软件 v1-源代码.docx
+           docs/软著文件/8-柯尔克孜族语键盘（国标）for Linux软件 v1/8-柯尔克孜族语键盘（国标）for Linux软件 v1-软著信息表.doc
+           ini/dhd_gbt.ini
+           ini/kk_gbt.ini
+           ini/kr_gbt.ini
+           ini/kz_gbt.ini
+           ini/ug_gbt.ini
+           src/CMakeLists.txt
+           src/images/bad.png
+           src/images/heart.png
+           src/images/taotics.png
+           src/images/trash.png
+           src/main.cpp
+           src/systray.pro
+           src/window.cpp
+           src/window.h
+           symbols/dhd_gbt
+           symbols/kk_gbt
+           symbols/kr_gbt
+           symbols/kz_gbt
+           symbols/ug_gbt
+Copyright: __NO_COPYRIGHT_NOR_LICENSE__
+License:   __NO_COPYRIGHT_NOR_LICENSE__
+
+#----------------------------------------------------------------------------
+# xml and html files (skipped):
+#         src/systray.qrc
+
+#----------------------------------------------------------------------------
+# Files marked as NO_LICENSE_TEXT_FOUND may be covered by the following
+# license/copyright files.

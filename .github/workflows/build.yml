@@ -1,0 +1,15 @@
+name: Build and check
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libfcitx5core-dev libfcitx5config-dev libfcitx5utils-dev libglib2.0-dev libcurl4-openssl-dev
+      - run: make -j2
+      - run: make check

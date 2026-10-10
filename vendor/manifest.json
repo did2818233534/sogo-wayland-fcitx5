@@ -1,0 +1,51 @@
+[
+  {
+    "file": "cpis-base_10.0.9.0.6-202311280935_amd64.deb",
+    "package": "cpis-base",
+    "version": "10.0.9.0.6-202311280935",
+    "sha256": "615482541d573bd5b07d119f9b5f93d741a7c5a4d89fc6cc3bd93c1b76205af5",
+    "size": 95729524
+  },
+  {
+    "file": "sogou-ime-ng-cpis-dict-keyboard-chs-pcpy_10.0.1-48.1_all.deb",
+    "package": "sogou-ime-ng-cpis-dict-keyboard-chs-pcpy",
+    "version": "10.0.1-48.1",
+    "sha256": "ee40d758cd557d238cfc398af0fdc7480e7df6ea30566ff7fbdeca4add35822f",
+    "size": 15975104
+  },
+  {
+    "file": "sogou-ime-ng-cpis-dict-keyboard-chs-pcwb_10.0.1-48.1_all.deb",
+    "package": "sogou-ime-ng-cpis-dict-keyboard-chs-pcwb",
+    "version": "10.0.1-48.1",
+    "sha256": "5d02a30b88fc977dba6a04eea3f73b949d7becbded816581f6c271dad2f8ab32",
+    "size": 5276420
+  },
+  {
+    "file": "sogou-ime-ng-cpis-dict-keyboard-multilingual-pcen_10.0.1-48.1_all.deb",
+    "package": "sogou-ime-ng-cpis-dict-keyboard-multilingual-pcen",
+    "version": "10.0.1-48.1",
+    "sha256": "cebb053ac612ce64e97b69557f1c9911207e198cc0d8c7e57d8e0a20b722d45c",
+    "size": 9728712
+  },
+  {
+    "file": "sogou-ime-ng-cpis-user-default-profile_10.0.1-48.1_all.deb",
+    "package": "sogou-ime-ng-cpis-user-default-profile",
+    "version": "10.0.1-48.1",
+    "sha256": "fb5268eae8870a08988e81f0839d3c2f0ad7898b6871bb4e5cfe739bfc8a0d54",
+    "size": 5960
+  },
+  {
+    "file": "sogou-ime-ng-fcitx5-kylin-desktop_10.0.9.0.6-20231128000607_amd64.deb",
+    "package": "sogou-ime-ng-fcitx5-kylin-desktop",
+    "version": "10.0.9.0.6-20231128000607",
+    "sha256": "99fd9f7b512cc367b44f13029b282fcb2387ddb1e26f7caa1ffa1cfe5f0b5532",
+    "size": 8410
+  },
+  {
+    "file": "sogou-ime-ng_10.0.9.0.6-20231128000607_amd64.deb",
+    "package": "sogou-ime-ng",
+    "version": "10.0.9.0.6-20231128000607",
+    "sha256": "9fd28578f1980ed715bcda5e7e0ae80239638e3af82f57c3d156f8d5946e6c82",
+    "size": 13430608
+  }
+]
