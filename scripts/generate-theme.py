@@ -4,7 +4,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 palettes = {
     'dark': dict(background='#242424', highlight='#565656', border='#686868', text='#e8e8e8'),
-    'light': dict(background='#f5f5f5', highlight='#dcdcdc', border='#b0b0b0', text='#333333'),
+    'light': dict(background='#f5f5f5', highlight='#c4c4c4', border='#b0b0b0', text='#333333'),
 }
 for mode, palette in palettes.items():
     out = Path(__file__).resolve().parents[1] / ('data/themes/sogou-soft-' + mode)
