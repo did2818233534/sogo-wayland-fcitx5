@@ -89,7 +89,7 @@ sudo python3 scripts/deploy.py uninstall
 
 ## 夜间模式
 
-使用项目自带的柔和深灰主题（背景 `#2c2c2c`、12 px 圆角、1 px 灰色边框，高亮 7 px 圆角），无需重启输入法：
+使用项目自带的柔和深灰主题（背景 `#242424`、12 px 圆角、1 px 灰色边框，高亮 7 px 圆角），无需重启输入法：
 
 ```bash
 sudo apt install python3-dbus
