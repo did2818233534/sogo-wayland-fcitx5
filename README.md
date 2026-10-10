@@ -87,6 +87,20 @@ sudo python3 scripts/deploy.py uninstall
 
 脚本只删除仍指向本安装的链接。个人词库保留在 `/opt/sogou-ng/userdata`，请按需备份；确认不再需要后可自行删除剩余目录。最后注销重新登录恢复其他输入法。全局按键没有被安装脚本改写，无需还原。
 
+## 夜间模式
+
+使用 Fcitx5 自带深色主题，无需重启输入法：
+
+```bash
+sudo apt install python3-dbus
+/usr/bin/python3 scripts/appearance.py dark    # 始终深色
+/usr/bin/python3 scripts/appearance.py auto    # 跟随系统明暗模式
+/usr/bin/python3 scripts/appearance.py light   # 始终浅色
+/usr/bin/python3 scripts/appearance.py restore # 恢复首次修改前的主题设置
+```
+
+首次操作会备份原主题设置。该设置影响共用 Fcitx5 Classic UI 的输入法，不只搜狗；由桌面 Kimpanel 或应用自行绘制的候选窗可能不受控制。自动模式依赖桌面提供明暗模式通知。
+
 ## 排查问题
 
 ```bash
