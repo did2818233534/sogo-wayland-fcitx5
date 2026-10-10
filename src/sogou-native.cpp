@@ -347,9 +347,11 @@ class SogouNative : public InputMethodEngine {
             show(ic);
             return;
         }
-        i = localIndices[i];
+        // CPIS SelectCandidate uses an absolute index, not the visible page slot.
+        i = page * 5 + localIndices[i];
         auto *r = call("SelectCandidate", g_variant_new("(sii)", uid.c_str(), 0, i));
         g_variant_unref(r);
+        page = 0;
         update(ic);
     }
     void fallback(InputContext *ic) {
