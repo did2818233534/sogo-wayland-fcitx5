@@ -89,7 +89,7 @@ sudo python3 scripts/deploy.py uninstall
 
 ## 夜间模式
 
-使用 Fcitx5 自带深色主题，无需重启输入法：
+使用项目自带的柔和深灰主题（背景 `#363636`、12 px 圆角，高亮 7 px 圆角），无需重启输入法：
 
 ```bash
 sudo apt install python3-dbus

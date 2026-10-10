@@ -2,6 +2,7 @@
 """Switch the shared Fcitx5 classic candidate UI between dark, light and auto."""
 import argparse
 import json
+import shutil
 from pathlib import Path
 import dbus
 
@@ -17,11 +18,14 @@ backup = Path.home() / '.local/state/sogo-wayland-fcitx5/appearance-backup.json'
 if args.mode == 'restore':
     settings = json.loads(backup.read_text())
 else:
+    source = Path(__file__).resolve().parents[1] / 'data/themes/sogou-soft-dark'
+    target = Path.home() / '.local/share/fcitx5/themes/sogou-soft-dark'
+    shutil.copytree(source, target, dirs_exist_ok=True)
     if not backup.exists():
         backup.parent.mkdir(parents=True, exist_ok=True)
         backup.write_text(json.dumps({k: str(config[k]) for k in keys}, indent=2) + '\n')
-    settings = {'Theme': 'default-dark' if args.mode == 'dark' else 'default',
-                'DarkTheme': 'default-dark',
+    settings = {'Theme': 'sogou-soft-dark' if args.mode == 'dark' else 'default',
+                'DarkTheme': 'sogou-soft-dark',
                 'UseDarkTheme': 'True' if args.mode == 'auto' else 'False'}
 for key, value in settings.items():
     config[key] = dbus.String(value, variant_level=1)
