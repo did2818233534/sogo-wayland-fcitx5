@@ -11,6 +11,8 @@
 - 当前面向单用户桌面，安装到 `/opt/sogou-ng`。不支持多用户同时共享引擎或与其他 CPIS 安装并存。
 - Fcitx D-Bus 自动输入检查通过；**没有完成 Chrome 原生 Wayland 键盘端到端人工验证**。具体应用能否输入也取决于其输入法协议和桌面环境配置。
 
+候选显示和最终上屏通过 OpenCC 统一为简体中文，包含云候选；不改变系统或桌面语言。
+
 ## 功能与按键
 
 | 操作 | 行为 |
@@ -36,7 +38,7 @@
 sudo apt update
 sudo apt install build-essential pkg-config python3 \
   libfcitx5core-dev libfcitx5config-dev libfcitx5utils-dev \
-  libglib2.0-dev libcurl4-openssl-dev \
+  libglib2.0-dev libcurl4-openssl-dev libopencc-dev \
   fcitx5 fcitx5-config-qt fcitx5-frontend-gtk3 fcitx5-frontend-qt5 \
   libgtk-3-0t64 libxtst6
 make -j"$(nproc)"
@@ -121,7 +123,7 @@ ldd /opt/sogou-ng/libsogou-native.so
 
 [测试说明](docs/testing.md) 记录自动验证覆盖和局限。CI 仅构建适配层、运行部署工具测试并校验归档，不启动闭源引擎，不连接云服务。
 
-当前仍是实验版本：本地引擎 D-Bus 调用有 700 ms 超时；闭源引擎卡顿可能短暂影响输入。尚未实现官方账号登录、词库同步、皮肤、全平台兼容或完整的搜狗官方云功能。
+当前仍是实验版本：本地引擎同步调用按每次操作共用 180 ms 等待预算；失败后退避 1 秒并保留拼音，随后自动重放一次，避免首字母因超时被直接提交为英文。模式在首次使用或连接失败后设置，不再每个词重复设置。闭源引擎卡顿仍可能短暂影响输入。尚未实现官方账号登录、词库同步、皮肤、全平台兼容或完整的搜狗官方云功能。
 
 ## 许可证
 

@@ -22,4 +22,4 @@ StandardOutput=null
 StandardError=journal
 
 [Install]
-WantedBy=default.target
+WantedBy=graphical-session.target

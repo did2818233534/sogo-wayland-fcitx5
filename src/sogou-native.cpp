@@ -6,6 +6,7 @@
 #include <condition_variable>
 #include <curl/curl.h>
 #include <fcitx-utils/eventdispatcher.h>
+#include <fcitx-utils/event.h>
 #include <fcitx/addonfactory.h>
 #include <fcitx/addonmanager.h>
 #include <fcitx/candidatelist.h>
@@ -15,6 +16,7 @@
 #include <fcitx/text.h>
 #include <functional>
 #include <gio/gio.h>
+#include <opencc/opencc.h>
 #include <map>
 #include <mutex>
 #include <stdexcept>
@@ -32,6 +34,51 @@ class Word : public CandidateWord {
 };
 class SogouNative : public InputMethodEngine {
     GDBusConnection *bus = nullptr;
+    bool modeReady = false, needsReplay = false;
+    using Clock = std::chrono::steady_clock;
+    Clock::time_point retryAfter{}, deadline{};
+    EventLoop *loop = nullptr;
+    std::unique_ptr<EventSourceTime> recovery;
+    unsigned long operation = 0;
+    const char *operationName = "startup";
+    Clock::time_point operationStart{};
+    bool operationFailed = false;
+    static double elapsed(Clock::time_point start) {
+        return std::chrono::duration<double, std::milli>(Clock::now() - start).count();
+    }
+    void beginOperation(const char *name = "candidate") {
+        ++operation;
+        operationName = name;
+        operationFailed = false;
+        operationStart = Clock::now();
+        deadline = operationStart + std::chrono::milliseconds(180);
+    }
+    // Log only slow/failed operations; never log key values or composition text.
+    struct OperationLog {
+        SogouNative *self;
+        ~OperationLog() {
+            double ms = elapsed(self->operationStart);
+            if (ms >= 30 || self->operationFailed)
+                fprintf(stderr, "sogou-native: event=operation op=%lu kind=%s elapsed_ms=%.2f failed=%d replay_pending=%d\n",
+                        self->operation, self->operationName, ms, self->operationFailed, self->needsReplay);
+        }
+    };
+
+    // Main-thread-only conversion: preserve engine indices, simplify display and commits.
+    opencc_t simplified = opencc_open("t2s.json");
+    std::string toSimplified(const std::string &text) {
+        if (text.empty() || simplified == reinterpret_cast<opencc_t>(-1))
+            return text;
+        char *converted = opencc_convert_utf8(simplified, text.data(), text.size());
+        if (!converted)
+            return text;
+        std::string result(converted);
+        opencc_convert_utf8_free(converted);
+        return result;
+    }
+    void commitSimplified(InputContext *ic, const std::string &text) {
+        ic->commitString(toSimplified(text));
+    }
     std::string uid, raw, composition;
     std::vector<std::string> words;
     int selected = 0, page = 0;
@@ -198,9 +245,11 @@ class SogouNative : public InputMethodEngine {
             if (!context || !context->hasFocus() || raw != expected)
                 return;
             auto locals = words;
+            for (auto &word : locals) word = toSimplified(word);
             words.clear();
             localIndices.clear();
             for (auto &word : cloud) {
+                word = toSimplified(word);
                 if (words.size() == 2)
                     break;
                 if (std::find(words.begin(), words.end(), word) == words.end()) {
@@ -221,10 +270,24 @@ class SogouNative : public InputMethodEngine {
     }
 
     GVariant *call(const char *method, GVariant *args) {
+        auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - Clock::now()).count();
+        if (Clock::now() < retryAfter || remaining <= 0) {
+            operationFailed = true;
+            // Do not emit one cooldown line per key; the original failure is logged.
+            if (Clock::now() >= retryAfter)
+                fprintf(stderr, "sogou-native: event=budget_exhausted op=%lu method=%s elapsed_ms=%.2f\n", operation, method, elapsed(operationStart));
+            if (args) { g_variant_ref_sink(args); g_variant_unref(args); }
+            throw std::runtime_error("engine cooling down; composition retained");
+        }
+        auto started = Clock::now();
         GError *err = nullptr;
         if (!bus)
             bus = g_bus_get_sync(G_BUS_TYPE_SESSION, nullptr, &err);
         if (!bus) {
+            operationFailed = true;
+            fprintf(stderr, "sogou-native: event=bus_connection_failed op=%lu elapsed_ms=%.2f domain=%s code=%d\n",
+                    operation, elapsed(started), err ? g_quark_to_string(err->domain) : "unknown", err ? err->code : -1);
+            if (args) { g_variant_ref_sink(args); g_variant_unref(args); }
             std::string msg = err ? err->message : "no bus";
             if (err)
                 g_error_free(err);
@@ -232,45 +295,85 @@ class SogouNative : public InputMethodEngine {
         }
         auto *r = g_dbus_connection_call_sync(bus, "com.cpis.engine", "/com/cpis/engine",
                                               "com.cpis.engine", method, args, nullptr,
-                                              G_DBUS_CALL_FLAGS_NO_AUTO_START, 700, nullptr, &err);
+                                              G_DBUS_CALL_FLAGS_NO_AUTO_START, int(remaining), nullptr, &err);
         if (!r) {
+            operationFailed = true;
+            const char *reason = "dbus_error";
+            if (g_error_matches(err, G_IO_ERROR, G_IO_ERROR_TIMED_OUT) ||
+                g_error_matches(err, G_DBUS_ERROR, G_DBUS_ERROR_NO_REPLY) ||
+                g_error_matches(err, G_DBUS_ERROR, G_DBUS_ERROR_TIMEOUT)) reason = "engine_reply_timeout";
+            else if (g_error_matches(err, G_DBUS_ERROR, G_DBUS_ERROR_SERVICE_UNKNOWN) ||
+                     g_error_matches(err, G_DBUS_ERROR, G_DBUS_ERROR_NAME_HAS_NO_OWNER)) reason = "engine_service_unavailable";
+            else if (g_error_matches(err, G_IO_ERROR, G_IO_ERROR_CLOSED) ||
+                     g_error_matches(err, G_DBUS_ERROR, G_DBUS_ERROR_DISCONNECTED)) reason = "bus_disconnected";
+            char *remote = err ? g_dbus_error_get_remote_error(err) : nullptr;
+            fprintf(stderr, "sogou-native: event=rpc_failed op=%lu method=%s reason=%s elapsed_ms=%.2f budget_ms=%lld domain=%s code=%d remote=%s cooldown_ms=1000\n",
+                    operation, method, reason, elapsed(started), static_cast<long long>(remaining),
+                    err ? g_quark_to_string(err->domain) : "unknown", err ? err->code : -1, remote ? remote : "none");
+            g_free(remote);
+            modeReady = false;
+            retryAfter = Clock::now() + std::chrono::milliseconds(1000);
             std::string msg = err ? err->message : "call failed";
             if (err)
                 g_error_free(err);
+
             throw std::runtime_error(msg);
         }
+        if (elapsed(started) >= 30)
+            fprintf(stderr, "sogou-native: event=rpc_slow op=%lu method=%s elapsed_ms=%.2f budget_ms=%lld\n",
+                    operation, method, elapsed(started), static_cast<long long>(remaining));
         return r;
     }
     void simple(const char *method) {
         auto *r = call(method, g_variant_new("(s)", uid.c_str()));
         g_variant_unref(r);
     }
+    void ensureMode() {
+        if (!modeReady) {
+            auto *r = call("SetMode",
+                           g_variant_new("(sss)", uid.c_str(), "kb_zh_cn_pc_pinyin_26key", "zh_cn"));
+            g_variant_unref(r);
+            modeReady = true;
+        }
+    }
     void prepare() {
-        auto *r = call("SetMode",
-                       g_variant_new("(sss)", uid.c_str(), "kb_zh_cn_pc_pinyin_26key", "zh_cn"));
-        g_variant_unref(r);
+        ensureMode();
         simple("Clear");
     }
     void clear() {
         page = 0;
         invalidate();
-        simple("Clear");
+        if (recovery) recovery->setEnabled(false);
         raw.clear();
         composition.clear();
         words.clear();
+        localIndices.clear();
+        needsReplay = false;
         selected = 0;
+        simple("Clear");
+    }
+    void replay(InputContext *ic) {
+        prepare();
+        GVariantBuilder b;
+        g_variant_builder_init(&b, G_VARIANT_TYPE("ai"));
+        for (char c : raw) g_variant_builder_add(&b, "i", int(c));
+        auto *r = call("PushChars", g_variant_new("(s@ai)", uid.c_str(), g_variant_builder_end(&b)));
+        g_variant_unref(r);
+        update(ic);
     }
     void show(InputContext *ic) {
         auto &p = ic->inputPanel();
         p.reset();
-        p.setPreedit(Text(composition));
+        p.setPreedit(Text(toSimplified(composition)));
         auto list = std::make_unique<CommonCandidateList>();
         list->setPageSize(5);
         list->setLayoutHint(CandidateLayoutHint::Horizontal);
         for (size_t i = 0; i < words.size(); i++)
-            list->append<Word>(Text(std::to_string(i + 1) + " " + words[i] +
+            list->append<Word>(Text(std::to_string(i + 1) + " " + toSimplified(words[i]) +
                                     (localIndices.size() > i && localIndices[i] < 0 ? " ☁" : "")),
                                [this, i](InputContext *c) {
+                                   beginOperation("candidate");
+                                   OperationLog trace{this};
                                    try {
                                        select(c, i);
                                    } catch (...) {
@@ -303,7 +406,7 @@ class SogouNative : public InputMethodEngine {
         g_variant_unref(a);
         g_variant_unref(r);
         if (!commit.empty())
-            ic->commitString(commit);
+            commitSimplified(ic, commit);
         if (composition.empty())
             raw.clear();
         else {
@@ -314,6 +417,8 @@ class SogouNative : public InputMethodEngine {
         for (size_t i = 0; i < words.size(); i++)
             localIndices.push_back(i);
         selected = 0;
+        needsReplay = false;
+        if (recovery) recovery->setEnabled(false);
         show(ic);
         if (cloud)
             requestCloud(ic);
@@ -343,7 +448,7 @@ class SogouNative : public InputMethodEngine {
         if (localIndices[i] < 0) {
             auto word = words[i];
             clear();
-            ic->commitString(word);
+            commitSimplified(ic, word);
             show(ic);
             return;
         }
@@ -354,24 +459,51 @@ class SogouNative : public InputMethodEngine {
         page = 0;
         update(ic);
     }
-    void fallback(InputContext *ic) {
+    void fallback(InputContext *ic, bool schedule = true) {
         invalidate();
-        if (!raw.empty())
-            ic->commitString(raw);
-        raw.clear();
-        composition.clear();
+        // A timeout is not a request to commit English. Keep the entire spelling.
+        needsReplay = true;
+        composition = raw;
         words.clear();
+        localIndices.clear();
+        page = selected = 0;
         show(ic);
+        if (schedule && !raw.empty() && (!recovery || !recovery->isEnabled())) {
+            auto ref = ic->watch();
+            recovery = loop->addTimeEvent(CLOCK_MONOTONIC, now(CLOCK_MONOTONIC) + 1100000, 0,
+                [this, ref](EventSourceTime *, uint64_t) {
+                    auto *context = ref.get();
+                    if (context && context->hasFocus() && needsReplay && !raw.empty()) {
+                        beginOperation("recovery");
+                        OperationLog trace{this};
+                        fprintf(stderr, "sogou-native: event=recovery_start op=%lu\n", operation);
+                        try {
+                            replay(context);
+                            fprintf(stderr, "sogou-native: event=recovery_ok op=%lu elapsed_ms=%.2f\n", operation, elapsed(operationStart));
+                        }
+                        catch (...) {
+                            operationFailed = true;
+                            fprintf(stderr, "sogou-native: event=recovery_failed op=%lu\n", operation);
+                            fallback(context, false);
+                        }
+                    }
+                    return true;
+                });
+            recovery->setOneShot();
+        }
     }
 
   public:
     SogouNative(AddonManager *manager) {
+        fprintf(stderr, "sogou-native: event=diagnostics_enabled version=1 slow_threshold_ms=30 operation_budget_ms=180 input_text_logged=false\n");
+        loop = manager->eventLoop();
         dispatcher.attach(manager->eventLoop());
         worker = std::thread([this] { run(); });
         uid = std::string(g_get_user_name()) +
               "#im.module=fcitx5|im.name=sogou-ime-ng-fcitx5-kylin-desktop";
     }
     ~SogouNative() {
+        recovery.reset();
         invalidate();
         {
             std::lock_guard<std::mutex> lock(mutex);
@@ -379,15 +511,16 @@ class SogouNative : public InputMethodEngine {
             wake.notify_one();
         }
         worker.join();
+        if (simplified != reinterpret_cast<opencc_t>(-1)) opencc_close(simplified);
         dispatcher.detach();
         if (bus)
             g_object_unref(bus);
     }
     void activate(const InputMethodEntry &, InputContextEvent &e) override {
+        beginOperation("activate");
+        OperationLog trace{this};
         try {
-            auto *r = call("SetMode", g_variant_new("(sss)", uid.c_str(),
-                                                    "kb_zh_cn_pc_pinyin_26key", "zh_cn"));
-            g_variant_unref(r);
+            ensureMode();
             clear();
             show(e.inputContext());
         } catch (...) {
@@ -395,8 +528,10 @@ class SogouNative : public InputMethodEngine {
         }
     }
     void deactivate(const InputMethodEntry &, InputContextEvent &e) override {
+        beginOperation("deactivate");
+        OperationLog trace{this};
         if (!raw.empty())
-            e.inputContext()->commitString(raw);
+            commitSimplified(e.inputContext(), raw);
         try {
             clear();
         } catch (...) {
@@ -408,6 +543,8 @@ class SogouNative : public InputMethodEngine {
         show(e.inputContext());
     }
     void reset(const InputMethodEntry &, InputContextEvent &e) override {
+        beginOperation("reset");
+        OperationLog trace{this};
         try {
             clear();
         } catch (...) {
@@ -421,6 +558,8 @@ class SogouNative : public InputMethodEngine {
     void keyEvent(const InputMethodEntry &, KeyEvent &e) override {
         if (e.isRelease())
             return;
+        beginOperation("key");
+        OperationLog trace{this};
         auto *ic = e.inputContext();
         auto k = e.key().sym();
         if (k == FcitxKey_Shift_L || k == FcitxKey_Shift_R)
@@ -430,7 +569,7 @@ class SogouNative : public InputMethodEngine {
         if (e.key().states().test(KeyState::Ctrl) || e.key().states().test(KeyState::Alt) ||
             e.key().states().test(KeyState::Super)) {
             if (!raw.empty()) {
-                ic->commitString(raw);
+                commitSimplified(ic, raw);
                 try {
                     clear();
                 } catch (...) {
@@ -444,6 +583,11 @@ class SogouNative : public InputMethodEngine {
                 page = 0;
                 bool fresh = raw.empty();
                 raw += char(k);
+                if (needsReplay) {
+                    replay(ic);
+                    e.filterAndAccept();
+                    return;
+                }
                 if (fresh)
                     prepare();
                 GVariantBuilder b;
@@ -465,7 +609,8 @@ class SogouNative : public InputMethodEngine {
             } else if (k == FcitxKey_BackSpace) {
                 raw.pop_back();
                 std::string replay = raw;
-                clear();
+                // Keep the edited spelling even if resetting the engine times out.
+                prepare();
                 raw = replay;
                 if (!raw.empty()) {
                     GVariantBuilder b;
@@ -477,6 +622,9 @@ class SogouNative : public InputMethodEngine {
                     g_variant_unref(r);
                 }
                 update(ic);
+            } else if (needsReplay && (k == FcitxKey_space || (k >= '1' && k <= '5'))) {
+                replay(ic);
+                // Recovery only: display candidates before accepting a selection.
             } else if (k == FcitxKey_space && !words.empty())
                 select(ic, selected);
             else if (k >= '1' && k <= '5' && size_t(k - '1') < words.size())
@@ -498,14 +646,14 @@ class SogouNative : public InputMethodEngine {
                     show(ic);
                 }
             } else if (k == FcitxKey_Return) {
-                ic->commitString(raw);
+                commitSimplified(ic, raw);
                 clear();
                 show(ic);
             } else {
                 if (!words.empty())
                     select(ic, selected);
                 else {
-                    ic->commitString(raw);
+                    commitSimplified(ic, raw);
                     clear();
                     show(ic);
                 }
@@ -517,7 +665,6 @@ class SogouNative : public InputMethodEngine {
             }
             e.filterAndAccept();
         } catch (const std::exception &ex) {
-            fprintf(stderr, "sogou-native: %s\n", ex.what());
             fallback(ic);
             e.filterAndAccept();
         }

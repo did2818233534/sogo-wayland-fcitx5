@@ -1,5 +1,5 @@
 CXX ?= g++
-PKGS = Fcitx5Core gio-2.0 libcurl
+PKGS = Fcitx5Core gio-2.0 libcurl opencc
 CPPFLAGS += $(shell pkg-config --cflags $(PKGS))
 CXXFLAGS ?= -O2 -g
 CXXFLAGS += -std=c++17 -fPIC -pthread
